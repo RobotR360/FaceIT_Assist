@@ -15,7 +15,7 @@ import config
 from loggingLocal import log_print
 from bot import dp, bot
 from main import converter, disk, faceit
-
+#Реакция на команду старт, создание директории, в облаке(при отсутствии), для пользователя 
 @dp.message_handler(commands=['start'])
 async def hand_start(message: types.Message):
     try:
@@ -36,13 +36,7 @@ async def hand_start(message: types.Message):
             log_print(f"ERROR handlerTG {e}")
             return None
 
-@dp.message_handler(lambda m: 'testik' in m.text)
-async def send_photo_with_inputfile(message: types.Message):
-    photo_path = "src\\data\\matches\\1-0d9427a1-826f-4288-956e-90f1547edf92\\img\\1-0d9427a1-826f-4288-956e-90f1547edf92.png"
-    photo = InputFile(photo_path)
-    await bot.send_photo(message.chat.id, photo, caption="Это изображение с использованием InputFile")
-
-
+#Реакция на команду watchdemo, проверка директории пользователя на наличие файлов формата zst, отправка на обработку при нахождении
 @dp.message_handler(lambda m: '/watchdemo' in m.text)
 async def hand_watchdemo(message: types.Message):
     try:
@@ -73,7 +67,7 @@ async def hand_watchdemo(message: types.Message):
             log_print(f"ERROR handlerTG {e}")
             return None
 
-
+#Реакция на команду check, получение скриншота лобби и краткой статистики игроков по определенному матчу
 @dp.message_handler(lambda m: '/check' in m.text)
 async def hand_check(message: types.Message):
     try:
@@ -97,12 +91,12 @@ async def hand_check(message: types.Message):
     except Exception as e:
             log_print(f"ERROR handlerTG {e}")
             return None
-
+#Реакция на команду seeker, в разработке, добавление данных о пользователе и о игроке в локальный файл или бд, опрос ежечасно на наличие новых матчей у игрока, оповещение при нахождении
 @dp.message_handler(lambda m: '/seeker' in m.text)
 async def hand_check(message: types.Message):
     try:
         nickname_player = message.text.split("/seeker")[1].strip()
-        
     except Exception as e:
             log_print(f"ERROR handlerTG {e}")
             return None
+
