@@ -3,38 +3,38 @@ import json, requests
 import config
 from webparser import WebParser
 from loggingLocal import log_print
-
+"""Этот класс работает с неофициальным FaceIT API, может видоизмениться в дальнейшем"""
 class FaceITAPI:
-
+	#Инициализация класса требуется готовая сессия с куками FaceIT
 	def __init__(self, session):
 		self.session = session
-
+#Функция возвращает последний матч и краткую информацию о игроках, без статистики матча
 	def LastMatchLobby(self, nickname):
 		id_user = self.get_id_user(nickname)
 		id_last_match = self.get_last_matches(id_user, 1)[0]
 		data_lobby, data_statistics = self.get_match(id_last_match)
 		return self.get_info_lobby(data_lobby, data_statistics)
-
+#Функция возвращает статистику на конец последнего матча
 	def LastMatchStatistic(self, nickname):
 		id_user = self.get_id_user(nickname)
 		id_last_match = self.get_last_matches(id_user, 1)[0]
 		data_lobby, data_statistics = self.get_match(id_last_match)
 		return self.get_statistic_user(data_statistics, id_user)
-
+#Функция возращает информацию о игроках, без статистики, за определенный матч
 	def MatchLobby(self, id_match):
 		data_lobby, data_statistics = self.get_match(id_match)
 		return self.get_info_lobby(data_lobby, data_statistics)
-
+#Функция возвращает статистику на конец определенного матча
 	def MatchStatistics(self, id_match, id_user):
 		data_lobby, data_statistics = self.get_match(id_match)
 		return self.get_statistic_user(data_statistics, id_user)
-
+#запрос информации об игроке по его нику
 	def get_id_user(self, nickname):
 		url_data_user = f"https://www.faceit.com/api/users/v1/nicknames/{nickname}"
 		response = self.session.RequestGet(url_data_user)
 		data = json.loads(response.text)
 		return data["payload"]["id"]
-
+#Запрос информации о последнем матче игрока по его айди
 	def get_last_matches(self, user_id, quant):
 		url_for_last_match = f"https://www.faceit.com/api/stats/v1/stats/time/users/{user_id}/games/cs2?size={quant}&game_mode=5v5"	   
 		response = self.session.RequestGet(url_for_last_match)
@@ -43,7 +43,7 @@ class FaceITAPI:
 		for match in data:
 			id_matches.append(match["matchId"])
 		return id_matches
-
+#Запрос полной информации о матче
 	def get_match(self, match_id):
 		url_data_match_details = f"https://www.faceit.com/api/stats/v3/matches/{match_id}"
 		url_data_lobby = f"https://www.faceit.com/api/match/v2/match/{match_id}"	   
@@ -52,7 +52,7 @@ class FaceITAPI:
 		response = self.session.RequestGet(url_data_match_details)
 		data_statistics = json.loads(response.text)
 		return data_lobby, data_statistics
-
+#Фильтрация полученных данных, о игроках в лобби, в словари
 	def get_info_match_users(self, data_lobby_users):
 		data_users_in_lobby = {}
 		i=0
@@ -84,13 +84,14 @@ class FaceITAPI:
 			teams_data.update({"AVG-Elo":data_lobby_users[team]["stats"]["rating"]})
 			data_users_in_lobby.update({"Team"+team[-1]:teams_data})
 		return data_users_in_lobby
-
+#Фильтрация данных, о сервере в использованном в матче, в словарь
 	def get_info_lobby(self, data_lobby, data_statistics):
 		data_lobby_short ={}
 		data_lobby_short.update({"startTime":data_lobby["payload"]["startedAt"]})
 		data_lobby_short.update({"finishTime":data_lobby["payload"]["finishedAt"]})
 		data_lobby_short.update({"location":data_lobby["payload"]["voting"]["location"]["pick"][0]})
 		data_lobby_short.update({"map":data_lobby["payload"]["voting"]["map"]["pick"][0]})
+		#Получение итогового счета матча, конструкция актуальна на 16.09.25 в связи с тестированием нового формата на стороне фейсит
 		try:
 			data_lobby_short.update({"Score": str(data_statistics[0]["teams"][0]["score"])+":"+str(data_statistics[0]["teams"][1]["score"])})
 		except:
@@ -100,13 +101,13 @@ class FaceITAPI:
 		teams = self.get_info_match_users(data_lobby["payload"]["teams"])
 		data_lobby_short.update({"teams":teams})
 		return data_lobby_short
-
+#Добавление вложенного словаря
 	def get_statistic_user(self, data_statistics, user_id):
 		data_statistic_user ={}
 		statistic = self.get_info_match_statistics( data_statistics[0], user_id)
 		data_statistic_user.update({"Statistics":statistic})
 		return data_statistic_user
-
+#Проверка полученной информации, относится она к старому или тестовому формату
 	def get_info_match_statistics(self, data, user_id):
 		statistic = {}
 		if "duels" in data:
@@ -116,7 +117,7 @@ class FaceITAPI:
 			statistic.update({"Mem-Info-Old":"This old game don`t have info for mem moments"})
 			statistic.update({"Info-Old":self.get_info_old(data, user_id)})
 		return statistic
-
+#Фильтрация старого формата в словарь
 	def get_info_old(self, data, user_id):
 		return_data = {}
 		stats_user = self.parse_user(data, user_id)
@@ -129,13 +130,13 @@ class FaceITAPI:
 		return_data.update({"HsKills":stats_user["i13"]})
 		return_data.update({"HsRate":stats_user["c4"]})
 		return return_data
-
+#Получение статистики определенного игрока
 	def parse_user(self, data, user_id):
 		for team in data["teams"]:
 			for player in team["players"]:
 				if user_id in player["playerId"]:
 					return player
-
+#Получение информации по матчу путем поиска этого матча у определенного игрока
 	def info_match_old_constructe(self, user_id, match_id):
 		default_url_last_30_match = f"https://www.faceit.com/api/stats/v1/stats/time/users/{user_id}/games/cs2?size=30"
 		url_match = default_url_last_30_match
@@ -147,10 +148,10 @@ class FaceITAPI:
 					return match
 				else:
 					url_match = default_url_last_30_match + "&to="+str(match["data"])
-
+#Получение значения поля эло для определенного игрока из матча
 	def elo_for_old_constructe(self, user_id, match_id):
 		return self.info_match_old_constructe(user_id, match_id)['elo']
-
+#Получение принадлежности игрока к команде
 	def teamate_id(self, data, user_id):
 		team1 = []
 		for players in data["teams"][0]["players"]:
@@ -162,7 +163,7 @@ class FaceITAPI:
 			return team1
 		else:
 			return team2
-
+#Сбор "Мем" информации 
 	def get_mem_info(self, data, user_id):
 		mem_info = {}
 		team_ids = self.teamate_id(data,user_id)
@@ -231,7 +232,7 @@ class FaceITAPI:
 		mem_info.update({"Shots":shot_user})
 		mem_info.update({"Kills":kill_user})
 		return mem_info
-
+#Сбор статистики каждого игрока
 	def get_info(self, data,user_id):
 		info = {}
 		stats_user = self.parse_user(data, user_id)
@@ -276,14 +277,3 @@ class FaceITAPI:
 				info_half.update({"MVPs":stats_user_half["mvps"]})
 				info.update({half:info_half})
 		return info
-
-
-if __name__ == '__main__':
-	key= "eb5d7205-8d67-4eaa-9fa7-13861a1bece7"
-	params = {'nickname': nickname}
-	headers = {
-    'Authorization': f'Bearer {key}',
-    'Content-Type': 'application/json'
-}
-	response =  requests.get("https://open.faceit.com/data/v4/players", headers=headers, params=params)
-	print(response.text)
