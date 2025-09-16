@@ -12,17 +12,16 @@ from oauth2client.file import Storage
 import config
 from loggingLocal import log_print
 
-# If modifying these config.SCOPES_GD, delete your previously saved credentials
-# at ~/.credentials/drive-python-quickstart.json
-#  https://drive.google.com/drive/folders/14ykmd2dRysQLyU8hKsEPBV_XxRGxyyYs?usp=sharing
+"""Класс для работы с гугл апи"""
 class GoogleDisk:
-
+    #Инициализация класса, создание дополнительных параметров для работы с апи
     def __init__(self):
         credentials = self.get_credentials()
         http = credentials.authorize(httplib2.Http())
         self.service = discovery.build('drive', 'v3', http=http)
         self.folders = []
-
+    
+    #Получение всех директорий из корневой директории диска
     def getAllFolders(self):
         try:
             query = f"'root' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
@@ -42,7 +41,7 @@ class GoogleDisk:
         except Exception as e:
             log_print(f"ERROR googleDisk {e}")
             return None
-
+    #Получение дополнительных параметров из локального файла или путем запроса и создания локальных файлов
     def get_credentials(self):
         try:
             home_dir = os.path.expanduser('~')
@@ -61,8 +60,8 @@ class GoogleDisk:
         except Exception as e:
             log_print(f"ERROR googleDisk {e}")
             return None
-
-    def searchNewFile(self, folder_id=config.UPLOAD_FOLDER_ID):
+    #Поиск новых файлов в определенной директории
+    def searchNewFile(self, folder_id):
         try:
             query = f"'{folder_id}' in parents and trashed = false"
             results = self.service.files().list(
@@ -81,7 +80,7 @@ class GoogleDisk:
         except Exception as e:
             log_print(f"ERROR googleDisk {e}")
             return None
-
+    #Скачивание определенного файла
     def download_file(self, dataFile):
         try:
             if dataFile["Name"] is None:
@@ -99,7 +98,7 @@ class GoogleDisk:
         except Exception as e:
             log_print(f"ERROR googleDisk {e}")
             return None
-
+    #Расчет сколько времени файл лежит в облаке
     def calculate_age(self, createdTime):
         file_time = datetime.fromisoformat(createdTime.replace('Z', '+00:00'))
         current_time = datetime.now(timezone.utc)
@@ -108,7 +107,7 @@ class GoogleDisk:
         total_seconds = abs(time_difference.total_seconds())
         hours = total_seconds // 3600
         return hours
-
+    #Выгрузка файла в облако с выдачей прав доступа по ссылке
     def upload_file(self, file_path, folder_id):
         try:
             if not os.path.exists(file_path):
@@ -136,7 +135,7 @@ class GoogleDisk:
         except Exception as e:
             
             return None
-
+    #Создание новой директории с выдачей прав доступа по ссылке
     def create_folder(self, folder_name):
         try:
             query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and 'root' in parents"
@@ -164,10 +163,10 @@ class GoogleDisk:
         except Exception as e:
             log_print(f"ERROR googleDisk {e}")
             return None
-
+    #Сборка ссылки
     def build_folder_url(self, folder_id):
         return f"https://drive.google.com/drive/folders/{folder_id}?usp=sharing"
-
+    #Получение айди директории по ее названию
     def search_folder(self, name):
         try:
             query = f"'root' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'"
@@ -187,7 +186,7 @@ class GoogleDisk:
         except Exception as e:
             log_print(f"ERROR googleDisk {e}")
             return None
-
+    #Безвозвратное удаление файла из облака
     def delete_file(self, file):
         try:
             self.service.files().delete(fileId=file["ID"]).execute()
