@@ -6,10 +6,10 @@ from webparser import WebParser
 from loggingLocal import log_print
 browserSession = WebParser()
 browserSession.attach_cookies_to_session(browserSession.load_cookies())
-tz_plus_6 = timezone(timedelta(hours=6))
-
+tz_plus_6 = timezone(timedelta(hours=6)) #Временная зона моего города для читаемого формата времени матча
+"""Этот класс использует официальное API FaceIT"""
 class FaceIT:
-
+	#Инициализация класса требуется токен из https://docs.faceit.com
 	def __init__(self, token):
 		self.baseURL = "https://open.faceit.com/data/v4"
 		self.headers = {
@@ -18,15 +18,15 @@ class FaceIT:
 			}
 		self.player = self.Player(self)
 		self.match = self.Match(self)
-
+	#Сбор ссылки на матч
 	def build_url_match(self, match_id):
 		return f"https://www.faceit.com/ru/cs2/room/{match_id}"
-
+	#Класс для работы с данными об игроке
 	class Player:
 		def __init__(self, outer):
 			self.outer= outer
 			self.url = f"{self.outer.baseURL}/players"
-
+		#Формирование словаря для класса и создание локального файла
 		def build_data_player(self):
 			self.data = {
 				"ID":self.id,
@@ -42,7 +42,10 @@ class FaceIT:
 				"Win rate":self.Win_rate,
 				"Stat 5":self.last5 
 			}
-
+			os.makedirs(f"src\\data\\players\\{nickname}", exist_ok=True)
+			with open(f"src\\data\\players\\{nickname}\\data.json", "w") as file:
+				json.dump(self.data, file)
+		#Получение данных из локального файла, для уменьшения количества запросов
 		def get_data_file(self, nickname):
 			with open(f"src\\data\\players\\{nickname}\\data.json", 'r') as f:
 				data = json.load(f)
@@ -60,7 +63,7 @@ class FaceIT:
 			self.last5 = data["Stat 5"]
 			self.build_data_player()
 			return self
-
+		#Получение данных из запроса к апи
 		def get_data_web(self, nickname):
 			params = {'nickname':nickname}
 			try:
@@ -82,20 +85,18 @@ class FaceIT:
 				self.get_stats_cs2()
 				self.get_last_match()
 				self.build_data_player()
-				os.makedirs(f"src\\data\\players\\{nickname}", exist_ok=True)
-				with open(f"src\\data\\players\\{nickname}\\data.json", "w") as file:
-					json.dump(self.data, file)
 				return self
 			except Exception as e:
 				log_print(f"ERROR faceit_api {e}")
 				return None
-
+		#Проверка есть ли локальный файл по данному игроку 
+		#нужно реализовать проверку последнего изменения 
 		def get(self, nickname):
 			if os.path.isfile(f"src\\data\\players\\{nickname}\\data.json"):
 				return self.get_data_file(nickname)
 			else:
 				return self.get_data_web(nickname)
-			
+		#Получение общей статистики по игре кс2
 		def get_stats_cs2(self):
 			endpoint = f"/{self.id}/stats/cs2"
 			try:
@@ -111,7 +112,7 @@ class FaceIT:
 			except Exception as e:
 				log_print(f"ERROR faceit_api {e}")
 				return None
-
+		#Получение последнего матча
 		def get_last_match(self):
 			params = {'limit': 1,'offset': 0}
 			#params = {}
@@ -132,7 +133,7 @@ class FaceIT:
 				if last_match != self.last_match:
 					self.last_match = last_match
 				return self.last_match
-
+		#Получение последнего матча используя неофициальное апи
 		def get_last_match_alt(self):
 			try:
 				url_for_last_match = f"https://www.faceit.com/api/stats/v1/stats/time/users/{self.id}/games/cs2?size={1}&game_mode=5v5"	   
@@ -142,14 +143,14 @@ class FaceIT:
 			except Exception as e:
 				log_print(f"ERROR faceit_api {e}")
 				return None
-
+	#Класс для работы с данными о матче
 	class Match:
-
+		#Инициализация класса
 		def __init__(self,outer):
 			self.outer = outer
 			self.url = f"{self.outer.baseURL}/matches"
 			self.session = browserSession
-
+		#Получение данных о матче используя апи
 		def get_data_web(self, match_id):
 			self.id = match_id
 			endpoint = f"/{self.id}"
@@ -170,7 +171,7 @@ class FaceIT:
 			except Exception as e:
 				log_print(f"ERROR faceit_api {e}")
 				return None
-
+		#Получение данных о матче из локального файла
 		def get_data_file(self,match_id):
 			with open(f"src\\data\\matches\\{match_id}\\data.json", 'r') as f:
 				data = json.load(f)
@@ -186,13 +187,13 @@ class FaceIT:
 				self.image = browserSession.get_screenshot(f"https://www.faceit.com/ru/cs2/room/{self.id}", self.id)
 			self.build_data_match()
 			return self.data
-
+		#Проверка на наличие локального файла
 		def get(self, match_id):
 			if os.path.isfile(f"src\\data\\matches\\{match_id}\\data.json"):
 				return self.get_data_file(match_id)
 			else:
 				return self.get_data_web(match_id)
-			
+		#Получение данных используя неофициальное апи
 		def get_data_dont_api(self):
 			url_data_match_details = f"https://www.faceit.com/api/stats/v3/matches/{self.id}"
 			url_data_lobby = f"https://www.faceit.com/api/match/v2/match/{self.id}"	   
@@ -201,7 +202,8 @@ class FaceIT:
 			response = self.session.RequestGet(url_data_match_details)
 			data_statistics = json.loads(response.text)[0]
 			return data_lobby, data_statistics
-
+		#Расчет уровня игры исходя из эло
+		#актуально на 16.09.25
 		def calculatedLVL(self, quant):
 			match quant:
 				case quant if quant >=100 and quant <=500:
@@ -224,7 +226,7 @@ class FaceIT:
 					return 9
 				case quant if quant >=2001 and quant <=9999:
 					return 10
-
+		#Получение эло после матча исходя из формата вывода информации о матче
 		def get_elo_end(self, player_data, match_id):
 			try:
 				player_elo = {
@@ -240,7 +242,7 @@ class FaceIT:
 				}
 			finally:
 				return player_elo
-
+		#Получение эло при старом формате вывода информации о матче 
 		def elo_for_old_constructe(self, user_id, match_id):
 			try:
 				default_url_last_30_match = f"https://www.faceit.com/api/stats/v1/stats/time/users/{user_id}/games/cs2?size=30"
@@ -256,7 +258,7 @@ class FaceIT:
 			except Exception as e:
 				log_print(f"ERROR faceit_api {e}")
 				return None
-
+		#Составление вложенных словарей по информации команд в матче
 		def rebuild_teamData(self):
 			self.teams = {}
 			numberTeam = 0
@@ -288,7 +290,7 @@ class FaceIT:
 					players.append(playerFaceit.data)
 				numberTeam+=1
 				self.teams.update({f"Team{numberTeam}":players})
-
+		#Составление словаря с данными о матче и запись в локальный файл
 		def build_data_match(self):
 			self.data = {
 				"ID":self.id,
@@ -303,7 +305,7 @@ class FaceIT:
 			os.makedirs(f"src\\data\\matches\\{self.id}", exist_ok=True)
 			with open(f"src\\data\\matches\\{self.id}\\data.json", "w") as file:
 				json.dump(self.data, file)
-
+		#Получение статистики игроков в матче
 		def get_stats(self):
 			endpoint = f"/{self.id}/stats"
 			try:
@@ -320,4 +322,5 @@ class FaceIT:
 				log_print(f"ERROR faceit_api {e}")
 				return None
 		
+
 
