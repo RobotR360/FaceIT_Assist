@@ -12,15 +12,15 @@ import time, os
 
 import config
 from loggingLocal import log_print
-
+"""Класс для работы с браузером используя эмитацию нахождения на странице"""
 class WebParser:
-
+    #Инициализация класса, получение куков и параметров браузера
     def __init__(self):
         self.driver = self.DriverChrome()
         self.session = requests.Session()
         self.headers = config.HEADERS_FACEIT
         self.local_cookie_file = config.COOKIES
-
+    #Записывание полученных куков в локальный файл
     def get_cookies(self):
         self.driver.get(config.URL_MAIN_FACEIT)
         time.sleep(5)
@@ -29,7 +29,7 @@ class WebParser:
             json.dump(cookies, f)
         self.driver.quit()
         return cookies
-        
+    #Получение скриншота нацелено на матчи, открытие страницы выдержка для прогрузки всех ресурсов, нажатие, создание и сохранение скриншота, при ошибки в ожидании ресурсов вызывать повторное открытие
     def get_screenshot(self, url, name, attempt=3):
         path = ""
         try:
@@ -37,12 +37,11 @@ class WebParser:
             wait = WebDriverWait(self.driver, 15)
             wait.until(EC.presence_of_element_located((By.NAME, "roster2")))
             time.sleep(2)
-            # Добавляем визуальный индикатор курсора на страницу
+            #Запуск скрипта в консоли браузера, нажатие на кнопку принятие куков
             self.driver.execute_script("""
             document.querySelector("#usercentrics-root").shadowRoot.querySelector("#uc-center-container > div.sc-eBMEME.kvprDO > div > div.sc-jsJBEP.jnQAFK > div > button:nth-child(2)").click()
             """)
             time.sleep(1)
-            # Делаем скриншот
             os.makedirs(f"src\\data\\matches\\{name}\\img", exist_ok=True)
             self.driver.save_screenshot(f"src\\data\\matches\\{name}\\img\\{name}.png")
             path = f"src\\data\\matches\\{name}\\img\\{name}.png"
@@ -54,15 +53,14 @@ class WebParser:
         finally:
             self.driver.quit()
             return path
-
-
+    #Запись куков из локальных файлов
     def load_cookies(self):
         try:
             with open(self.local_cookie_file, 'r') as f:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return None
-
+    #Заполнение куков из словаря
     def attach_cookies_to_session(self, cookies):
         self.session.cookies.clear()
         for cookie in cookies:
@@ -72,11 +70,11 @@ class WebParser:
                 domain=cookie.get('domain'),
                 path=cookie.get('path', '/')
             )
-
+    #Инициализация драйвера хром с параметрами 
     def DriverChrome(self):
         chrome_options = Options()
         chrome_options.add_argument("--log-level=3")
-        chrome_options.add_argument("--headless")  # Раскомментируйте для безголового режима
+        chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1000,1000")
 
@@ -88,7 +86,7 @@ class WebParser:
 
         service = Service(ChromeDriverManager().install())
         return webdriver.Chrome(service=service, options=chrome_options)
-
+    #Выполнение запроса по ссылке с использованием полученных куки
     def RequestGet(self, url, max_retries=3):
         for attempt in range(max_retries):
             cookies = self.load_cookies()
